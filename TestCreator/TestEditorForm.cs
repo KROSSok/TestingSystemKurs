@@ -59,7 +59,11 @@ namespace TestCreator
                 testWriter.WriteStartElement("test");
 
                 testWriter.WriteStartElement("path");
-                testWriter.WriteString(filePath);
+                testWriter.WriteString(comboBoxCategory.Text + "\\" + textBoxTheme.Text + ".xml");
+                testWriter.WriteEndElement();
+
+                testWriter.WriteStartElement("fileName");
+                testWriter.WriteString(textBoxTheme.Text+".xml");
                 testWriter.WriteEndElement();
 
                 testWriter.WriteStartElement("Category"); 
@@ -166,6 +170,7 @@ namespace TestCreator
             try
             {
                 // Serialize the textBoxes text before sending.
+                Console.WriteLine("Sending XML...");
                 byte[] buffer = ReadWholeArray(fs);
                 clientSocket.BeginSend(buffer, 0, buffer.Length, SocketFlags.None, SendCallback, null);
             }

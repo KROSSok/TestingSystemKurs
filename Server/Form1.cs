@@ -12,17 +12,24 @@ using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using System.Windows.Forms;
+using System.Xml;
 
 namespace Server
 {
     public partial class Form1 : Form
     {
+        FtpClient ftp = new FtpClient();
         private Socket serverSocket;
+        XmlTextWriter testWriter;
+        string serverDir = "";
         private Socket clientSocket; // We will only accept one socket.
         private byte[] buffer; //our XML in byteArray
         public Form1()
         {
             InitializeComponent();
+            ftp.Host = "localhost";
+            ftp.UserName = "KROSS";
+            ftp.Password = "kross";
             StartServer();
         }
         private void StartServer()
@@ -89,10 +96,72 @@ namespace Server
             return Regex.Replace(text, re, "");
         }
 
-        private void ReceiveCallback(IAsyncResult AR)
+        private string parseFileNameXML(string xml)
+        {
+            XmlDocument xmlDoc = new XmlDocument();
+            xmlDoc.LoadXml(xml);
+            XmlNodeList xnList = xmlDoc.SelectNodes("/test");
+            string node = "";
+            if (xnList != null && xnList.Count > 0)
+            {
+                foreach (XmlNode xn in xnList)
+                {
+                    node = xn["fileName"].InnerText;
+
+                }
+            }
+            return node;
+        }
+
+        private string parseDirXML(string xml)
+        {
+            XmlDocument xmlDoc = new XmlDocument();
+            xmlDoc.LoadXml(xml);
+            XmlNodeList xnList = xmlDoc.SelectNodes("/test");
+            string node = "";
+            if (xnList != null && xnList.Count > 0)
+            {
+                foreach (XmlNode xn in xnList)
+                {
+                    node = xn["Category"].InnerText;
+                }
+            }
+            return node;
+        }
+
+        private void Create_Directory(string fileName) //working
+        {
+            serverDir = "";
+            try
+            {
+                ftp.createDirectory(serverDir, fileName);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(ex.Message);
+            }
+            serverDir = fileName;
+        }
+
+        private void Create_File(string fileName) //working
         {
             try
             {
+                ftp.createFile("/" + serverDir, fileName);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(ex.Message);
+            }
+        }
+
+
+        private void ReceiveCallback(IAsyncResult AR)
+        {
+            
+            try
+            {
+                Console.WriteLine("waiting to receive...");
                 // Socket exception will raise here when client closes, as this sample does not
                 // demonstrate graceful disconnects for the sake of simplicity.
                 int received = clientSocket.EndReceive(AR);
@@ -105,11 +174,16 @@ namespace Server
                 // The received data is deserialised buffer!!! - TO DO! - done.
                 // Stream writer has to write XML on LOCALHOST!!! - TO DO!
 
-                StreamWriter sw = new StreamWriter(@"F:\fnew.XML");
+                
                 string write = Encoding.Default.GetString(buffer);
+                string folder = parseDirXML(write);
+                string fileName = parseFileNameXML(write);
 
-                sw.Write(CleanInvalidXmlChars(write));
-                sw.Close();
+                Console.WriteLine(folder + "....." + fileName);
+
+                Create_Directory(folder);
+                Create_File(fileName);
+                ftp.UploadString(CleanInvalidXmlChars(write), "/" + serverDir, fileName);
 
                 // Start receiving data again.
                 clientSocket.BeginReceive(buffer, 0, buffer.Length, SocketFlags.None, ReceiveCallback, null);
@@ -124,6 +198,12 @@ namespace Server
                 ShowErrorDialog(ex.Message);
             }
         }
+
+        private void CreateDatabaseObject(string data)
+        {
+
+        }
+
         private static void ShowErrorDialog(string message)
         {
             MessageBox.Show(message, Application.ProductName, MessageBoxButtons.OK, MessageBoxIcon.Error);
